@@ -8,6 +8,9 @@ from selenium.webdriver.common.keys import Keys
 from unidecode import unidecode
 import pandas as pd
 import time
+import os
+from collections import defaultdict
+import json 
 
 class BehindTheName:
 
@@ -92,18 +95,45 @@ class BehindTheName:
 
 		self.driver.quit()
 
+	def postprocess_files(self):
+		
+		"""
+		collect names and everything else from each collected file and reorganize into
+		a dictionary
+		"""
+
+		names = defaultdict()
+
+		for fname in os.listdir(self.NAME_DIR):
+			if 'names_' in fname:
+				ethn = fname.split('.')[0].split('_')[1].strip()
+				for i, line in enumerate(open(f'{self.NAME_DIR}/{fname}','r').readlines()):
+					if i > 0:
+						name, gender = map(lambda x: x.strip(), line.split(','))
+						if name in names:
+							if ethn not in names[name]['ethnicity']:
+								names[name]['ethnicity'].append(ethn)
+							if gender not in names[name]['gender']:
+								names[name]['gender'].append(gender)
+						else:
+							names.update({name: {'ethnicity': [ethn], 'gender': [gender]}})
+		
+		for name in names:
+			if 'u' in names[name]['gender']:
+				names[name]['gender'] = 'u'
+			elif ('m' in names[name]['gender']) and ('f' in names[name]['gender']):
+				names[name]['gender'] = 'u'
+			else:
+				names[name]['gender'] = names[name]['gender'].pop()
+		
+		json.dump(names, open('newnames.json','w'))
+		print(f'names: {len(names)}')
+
 
 if __name__ == '__main__':
 
-	b = BehindTheName(what_names="""   Chewa
-   Shona
-   Tswana
-   Xhosa
-   Zulu
-Western African
-   Akan
-   Igbo
-   Urhobo
-   Yoruba""".lower().split(), 
+	b = BehindTheName(what_names="""greek japanese""".lower().split(), 
 						save_to_dir='collected_names', 
-							webdriver_path='/Users/ik/Data/webdrivers/chromedriver').get_names().quit()
+							webdriver_path='/Users/ik/Data/webdrivers/chromedriver')
+	# b.get_names().quit()
+	b.postprocess_files()
