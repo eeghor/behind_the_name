@@ -14,7 +14,7 @@ import json
 
 class BehindTheName:
 
-	def __init__(self, what_names, save_to_dir, webdriver_path):
+	def __init__(self, what_names, save_to_dir, webdriver_path, name_or_surname):
 
 		if isinstance(what_names, list):
 			self.WHATKIND = what_names
@@ -23,8 +23,14 @@ class BehindTheName:
 		else:
 			raise TypeError	
 
+		assert name_or_surname in 'names surnames'.split(), 'parameter name_or_surname must be either names or surnames!'
+
+		self.NAMES_OR_SURNAMES = name_or_surname
 		self.NAME_DIR = save_to_dir
-		self.BASE_URL = "https://www.behindthename.com/submit/names/usage"
+		if name_or_surname == 'surnames':
+			self.BASE_URL = f"https://surnames.behindthename.com/names/usage"
+		elif name_or_surname == 'names':
+			self.BASE_URL = f"https://behindthename.com/names/usage"
 
 		self.driver = webdriver.Chrome(webdriver_path)
 		self.driver.set_page_load_timeout(15)  # in seconds
@@ -32,10 +38,12 @@ class BehindTheName:
 	def _get_names(self, url):
 
 		try:
+			# print(f'getting {url}')
 			self.driver.get(url)
 		except TimeoutException:
 			# run this Java script to stop loading whatever it is
-			self.driver.execute_script("window.stop();")
+			# self.driver.execute_script("window.stop();")
+			pass
 
 		name_gender_list = []
 
@@ -68,7 +76,7 @@ class BehindTheName:
 			try:	
 				next_ = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, "Next")))
 				next_.click()
-				time.sleep(5)
+				time.sleep(3)
 			except:
 				# apparently, there's only one page with names
 				next_ = False
@@ -84,9 +92,15 @@ class BehindTheName:
 
 			k_names = self._get_names(url=f'{self.BASE_URL}/{k}')
 
-			print(len(k_names))
+			res = pd.DataFrame.from_records(k_names, columns="name gender".split())
 
-			pd.DataFrame.from_records(k_names, columns="name gender".split()).to_csv(f'{self.NAME_DIR}/names_{k}.txt', index=None)
+			# if we are after surnames, there are no genders so we can drop the corresponding column
+			if self.NAMES_OR_SURNAMES == 'surnames':
+				res = res.drop('gender', axis=1)
+
+			res.to_csv(f'{self.NAME_DIR}/{self.NAMES_OR_SURNAMES}_{k}.txt', index=None)
+
+			print('ok')
 
 		return self
 
@@ -132,8 +146,8 @@ class BehindTheName:
 
 if __name__ == '__main__':
 
-	b = BehindTheName(what_names="""greek japanese""".lower().split(), 
+	b = BehindTheName(what_names="""spanish""".lower().split(), 
 						save_to_dir='collected_names', 
-							webdriver_path='/Users/ik/Data/webdrivers/chromedriver')
-	# b.get_names().quit()
-	b.postprocess_files()
+							webdriver_path='/Users/ik/Data/webdrivers/chromedriver', name_or_surname='names')
+	b.get_names().quit()
+	# b.postprocess_files()
